@@ -6,8 +6,16 @@ const {
   hashPassword,
   transporter,
   transporterPromisify,
+  regisValidation,
 } = require('../favordb');
 const { db, query } = require('../db');
+
+const handleToken = (data) => {
+  const newData = { ...data };
+  const token = createToken(newData);
+  newData.token = token;
+  return newData;
+};
 
 router.get('/', async (req, res) => {
   try {
@@ -19,91 +27,69 @@ router.get('/', async (req, res) => {
   }
 });
 
-router.post('/login', (req, res) => {
+router.post('/login', async (req, res) => {
   const { username_email, password } = req.body;
-  let sql;
-  const regex_email = /[\w-\.]+(@[\w-\.]+\.)+[\w\.]{2,4}$/;
-  if (username_email.match(regex_email)) {
-    sql = `
-      SELECT 
-        id, username, email, password, alamat, roleID, verified
-      FROM userdb WHERE email='${username_email}' AND password = '${hashPassword(password)}'
-    `;
+  console.log(req.body);
+  const regexEmail = /[\w\-\.]+(@[\w\-]+\.)+[\w\-\.]{2,4}$/;
+  let sql_query;
+  if (username_email.match(regexEmail)) {
+    sql_query = `SELECT * FROM userdb WHERE email = '${username_email}' AND password = '${hashPassword(
+      password
+    )}'`;
   } else {
-    sql = `
-      SELECT 
-        id, username, email, password, alamat, roleID, verified
-      FROM userdb WHERE username='${username_email}' AND password = '${hashPassword(password)}'
-    `;
+    sql_query = `SELECT * FROM userdb WHERE username = '${username_email}' AND password = '${hashPassword(
+      password
+    )}'`;
   }
-  // console.log(req.body);
-  // console.log(username_email.match(regex_email));
-  // console.log(sql);
-  db.query(sql, (err, data) => {
-    if (err) return res.status(500).send(err);
-    if (data.length === 0) {
-      return res.status(404).send({ status: '404 Not Found', message: 'user not found' });
-    }
-    const responseData = { ...data[0] };
-    const token = createToken(responseData);
-    responseData.token = token;
-    return res.status(200).send(responseData);
-  });
+  try {
+    const data = await query(sql_query);
+    const newData = await handleToken(data[0]);
+    console.log(newData);
+    return res.status(200).send(newData);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err);
+  }
 });
 
-router.post('/keep-login', checkToken, (req, res) => {
-  console.log(req.user);
-  let sql = `
-    SELECT 
-      id, username, email, password, alamat, roleID, verified 
-    FROM userdb WHERE id=${req.user.id}
-  `;
-  db.query(sql, (err, data) => {
-    if (err) return res.status(500).send(err);
+router.post('/keep-login', checkToken, async (req, res) => {
+  // tambahan req.user berasal dari middleware checkToken
+  try {
+    const data = await query(`SELECT * FROM userdb WHERE id = ${req.user.id}`);
     return res.status(200).send(data[0]);
-  });
+  } catch (err) {
+    console.log(err);
+    if (err) return res.status(500).send(err);
+  }
 });
 
-router.post('/register', (req, res) => {
-  let { username, password, email, validation } = req.body;
-  if (validation) {
-    // console.log('eaea');
-    let sqlValidation_username = `SELECT username FROM userdb WHERE username='${username}'`;
-    db.query(sqlValidation_username, (err, data) => {
-      if (err) return res.status(500).send(err);
-      console.log(data);
-      if (data.length === 0) {
-        let sqlValidation_email = `SELECT email FROM userdb WHERE email='${email}'`;
-        db.query(sqlValidation_email, (err, data) => {
-          if (err) return res.status(500).send(err);
-          console.log(data);
-          return res.status(200).send(data);
-        });
-      } else {
-        return res.status(200).send(data);
-      }
-    });
-  } else {
-    // console.log('no');
-    password = hashPassword(password);
-    let sql_addUser = `INSERT INTO userdb (username, email, password, roleID, verified) VALUES ('${username}', '${email}', '${password}', 2, 0)`;
-    db.query(sql_addUser, (err, data_newUser) => {
-      if (err) return res.status(500).send(err);
-      console.log(data_newUser);
-      const sql_getUser = `SELECT * FROM userdb WHERE id = ${data_newUser.insertId}`;
-      db.query(sql_getUser, (err, data_user) => {
-        if (err) return res.status(500).send(err);
-        const responseData = { ...data_user[0] };
-        const token = createToken(responseData);
-        responseData.token = token;
-        console.log(responseData);
-        return res.status(200).send({
-          status: 'success',
-          value: responseData,
-          flow: [sql_addUser, data_newUser, sql_addUser, data_user],
-        });
-      });
-    });
+router.post('/register', regisValidation, async (req, res) => {
+  const { username, email, password } = req.body;
+  try {
+    // ngambil data yang baru masuk. ex: data.insertId
+    // tapi karena sudah divalidasi menggunakan middleware regisValidation, maka yang mempunyai username atau email hanya satu
+    await query(
+      `INSERT INTO userdb (username, email, password, roleID, verified) VALUES ('${username}', '${email}', '${hashPassword(
+        password
+      )}', 2, 0)`
+    );
+    const data = await query(`SELECT * FROM userdb WHERE email = '${email}'`);
+    const newData = await handleToken(data[0]);
+    return res.status(200).send(newData);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err);
+  }
+});
+
+router.delete('/:id', async (req, res) => {
+  const id = parseInt(req.params.id);
+  try {
+    await query(`DELETE FROM userdb WHERE id = ${id}`);
+    return res.status(200).send({ status: 'success', message: 'delete from userdb' });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err);
   }
 });
 
@@ -155,72 +141,57 @@ router.post('/send-email-verification', async (req, res) => {
   }
 });
 
-router.post('/email-verification', (req, res) => {
+router.post('/email-verification', async (req, res) => {
   const { username } = req.body;
-  console.log(req.body);
-  const sql_updateUser = `UPDATE userdb SET verified = 1 WHERE username='${username}'`;
-  db.query(sql_updateUser, (err, data_updateUser) => {
-    if (err) return res.status(500).send(err);
-    console.log(data_updateUser);
-    const sql_login = `SELECT id, username, email, roleID, alamat, verified FROM userdb WHERE username = '${username}'`;
-    db.query(sql_login, (err, data_login) => {
-      if (err) return res.status(500).send(err);
-      console.log(data_login);
-      const responseData = { ...data_login[0] };
-      const token = createToken(responseData);
-      responseData.token = token;
-      return res.status(200).send(responseData);
-    });
-  });
-});
-
-router.post('/send-change-password', (req, res) => {
-  const { email_username } = req.body;
-  const regex_email = /[\w-\.]+(@[\w-\.]+\.)+[\w\.]{2,4}$/;
-  let sql_getUser;
-  console.log(email_username);
-  if (email_username.match(regex_email)) {
-    sql_getUser = `SELECT * FROM userdb WHERE email = '${email_username}'`;
-  } else {
-    sql_getUser = `SELECT * FROM userdb WHERE username = '${email_username}'`;
+  try {
+    await query(`UPDATE userbd SET verified = 1 WHERE username = '${username}'`);
+    const getUser = await query(`SELECT * FROM userdb WHERE username = '${username}'`);
+    const newData = await handleToken(getUser[0]);
+    return res.status(200).send(newData);
+  } catch (err) {
+    console, log(err);
+    return res.status(500).send(err);
   }
-  console.log(sql_getUser);
-  db.query(sql_getUser, (err, data_getUser) => {
-    if (err) return res.status(500).send(err);
-    const { id, username, email, password } = data_getUser[0];
-    // create token hanya bisa digunakan untuk string | objek | buffer
-    const token = createToken({ id });
-    console.log(data_getUser, 'data_getUser');
-    const mailOption = {
-      from: `Admin <unyu@official.com>`,
-      to: email,
-      subject: 'Forget Password',
-      html: `<div><a href='http://localhost:3000/change-password?token=${token}'>Klik di sini untuk mengganti password</a></div>`,
-    };
-    transporter.sendMail(mailOption, (err, data_nodeMailer) => {
-      if (err) return res.status(500).send(err);
-      return res.status(200).send({
-        status: 'success',
-        message: 'email sent',
-        flow: [sql_getUser, data_getUser[0], mailOption, data_nodeMailer],
-      });
-    });
-  });
 });
 
-router.post('/change-password', checkToken, (req, res) => {
-  console.log(req.user);
+router.post('/send-change-password', async (req, res) => {
+  const { username_email } = req.body;
+  let sql_getUser;
+  try {
+    const regexEmail = /[\w\-\.]+(@[\w\-]+\.)+[\w\-\.]{2,4}$/;
+    if (username_email.match(regexEmail)) {
+      sql_getUser = `SELECT * FROM userdb WHERE email = '${username_email}'`;
+    } else {
+      sql_getUser = `SELECT * FROM userdb WHERE username = '${username_email}'`;
+    }
+    const getUser = await query(sql_getUser);
+    const new_getUser = handleToken(getUser[0]);
+    const { id, email, username, token } = new_getUser;
+    console.log(new_getUser);
+    const mailOptions = {
+      from: `<admin> jek@oficial.jek`,
+      to: email,
+      subject: `FORGOT PASSWORD`,
+      html: `<a href='http://localhost:3000/change-password?token=${token}'>klik di sini</a>`,
+    };
+    await transporterPromisify(mailOptions);
+    return res.status(200).send({ status: 'ok', message: `sent` });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err);
+  }
+});
+
+router.post('/change-password', checkToken, async (req, res) => {
+  const id = parseInt(req.user.id);
   const { password } = req.body;
-  const userID = req.user.id;
-  const sql_password = `UPDATE userdb SET password = '${hashPassword(
-    password
-  )}' WHERE id = ${userID}`;
-  console.log(req.body);
-  console.log(req.user);
-  db.query(sql_password, (err, data) => {
-    if (err) return res.status(500).send(err);
-    return res.status(200).send({ status: 'success', flow: [sql_password, data] });
-  });
+  try {
+    await query(`UPDATE userdb SET password = '${hashPassword(password)}' WHERE id = '${id}'`);
+    return res.status(200).send({ status: 'success', message: `change password` });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err);
+  }
 });
 
 module.exports = router;

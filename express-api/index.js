@@ -11,8 +11,6 @@ const {
   mongoRouter,
   socketRouter,
 } = require('./router');
-const { transporter } = require('./favordb');
-const { query } = require('./db');
 
 const app = express();
 app.use(cors());
@@ -30,17 +28,11 @@ app.userCount = userCount;
 // npm i socket.io@2.3.0
 io.on('connection', (socket) => {
   userCount += 1;
-  // console.log(`new ws connection, active: ${userCount}`);
-  // socket.emit('message', 'welcome to chatcord');
-  // socket.broadcast.emit('msg', 'a user has joined');
-  // socket.on('disconnect', () => {
-  //   io.emit('msg', 'a user has left');
-  // });
   io.emit('jumlahUser', userCount);
 
   console.log('User Connected', userCount);
 
-  socket.on('disconnect', (data) => {
+  socket.on('disconnect', () => {
     userCount--;
     console.log('User Disconnected, Remaining: ', userCount);
     io.emit('jumlahUser', userCount);
@@ -71,4 +63,4 @@ app.use('/mongodb', mongoRouter);
 app.use('/socket', socketRouter);
 
 // app.listen(port, () => console.log(`API active at port ${port}`));
-server.listen(port, () => console.log(`API active at port ${port}`));
+server.listen(port, () => console.log(`API running at http://localhost:${port}`));

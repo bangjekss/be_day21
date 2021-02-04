@@ -82,7 +82,7 @@ export const keepLoginAction = () => {
           Authorization: `Bearer ${token}`,
         },
       };
-
+      // headers dibawa ke router userdb/keep-login -> checkToken
       const respone = await Axios.post(`${userdb_url}/keep-login`, {}, headers);
       const { id, username, email, alamat, roleID, verified } = respone.data;
       console.log(respone.data);
@@ -277,8 +277,8 @@ export const registerAction = (userData) => {
     });
     try {
       const response = await Axios.post(`${userdb_url}/register`, userData);
-      console.log(response.data.value);
-      const { id, username, email, roleID, verified, token } = response.data.value;
+      // console.log(response.data.value);
+      const { id, username, email, roleID, verified, token } = response.data;
       localStorage.setItem('token', token);
       dispatch({
         type: API_REGIS_LOGIN,
@@ -379,14 +379,14 @@ export const emailVerificationAction = (data) => {
   };
 };
 
-export const sendChangePasswordAction = (email_username) => {
+export const sendChangePasswordAction = (username_email) => {
   return async (dispatch) => {
     dispatch({
       type: API_LOADING_START,
     });
     try {
-      console.log(email_username);
-      const response = await Axios.post(`${userdb_url}/send-change-password`, { email_username });
+      console.log(username_email);
+      const response = await Axios.post(`${userdb_url}/send-change-password`, { username_email });
       const { email } = response.data.flow[1];
       console.log(email);
       dispatch({ type: API_LOADING_SUCCESS });

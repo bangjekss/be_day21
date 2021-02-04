@@ -8,7 +8,7 @@ const createToken = (payload) => {
 const checkToken = (req, res, next) => {
   if (req.method !== 'OPTIONS') {
     jwt.verify(req.token, 'qwerty', (err, decoded) => {
-      if (err) return res.status(401).send({ status: 'Unauthorized', message: err });
+      if (err) return res.status(401).send({ status: 'Unauthorized', message: 'token expired' });
       req.user = decoded;
       console.log(decoded);
       next();
