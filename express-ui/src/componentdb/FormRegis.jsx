@@ -28,7 +28,7 @@ class FormRegis extends Component {
       validation(value);
       // console.log(prevProps.valueMail, 'prevProps');
       // console.log(valueMail, 'this');
-      // console.log(this.props.rxIsValidEmail);
+      console.log(this.props.rxIsValidEmail);
     }
   }
   render() {

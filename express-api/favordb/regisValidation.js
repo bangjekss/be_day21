@@ -2,13 +2,26 @@ const { query } = require('../db');
 
 const regisValidation = async (req, res, next) => {
   const { username, email } = req.body;
-  const getData_username = await query(`SELECT * FROM userdb WHERE username = '${username}'`);
-  if (getData_username.length !== 0)
-    return res.status(401).send({ status: 'failed', message: 'Username already exists' });
-  const getData_email = await query(`SELECT * FROM userdb WHERE email = '${email}'`);
-  if (getData_email.length !== 0)
-    return res.status(401).send({ status: 'failed', message: 'Email already exists' });
-  next();
+  try {
+    const getData_username = await query(
+      `SELECT username FROM userdb WHERE username = '${username}'`
+    );
+    // console.log(getData_username);
+    if (getData_username.length === 0) {
+      const getData_email = await query(`SELECT email FROM userdb WHERE email = '${email}'`);
+      res.status(200).send(getData_email);
+      // next();
+      return res.status(200).send(getData_email);
+    } else {
+      res.status(200).send(getData_username);
+      // next();
+      // next();
+      return res.status(200).send(getData_username);
+    }
+  } catch (err) {
+    return res.status(500).send(err);
+  }
+  // next();
 };
 
 module.exports = regisValidation;

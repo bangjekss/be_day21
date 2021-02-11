@@ -63,11 +63,17 @@ router.post('/keep-login', checkToken, async (req, res) => {
   }
 });
 
-router.post('/register', regisValidation, async (req, res) => {
+router.post('/register-live-validation', async (req, res) => {
+  console.log(req.body);
+  const { username, email } = req.body;
+  const usernameExist = await query(`SELECT username FROM userdb WHERE username = '${username}'`);
+  const emailExist = await query(`SELECT email FROM userdb WHERE email = '${email}'`);
+  return res.status(200).send({ username: usernameExist[0], email: emailExist[0] });
+});
+
+router.post('/register', async (req, res) => {
   const { username, email, password } = req.body;
   try {
-    // ngambil data yang baru masuk. ex: data.insertId
-    // tapi karena sudah divalidasi menggunakan middleware regisValidation, maka yang mempunyai username atau email hanya satu
     await query(
       `INSERT INTO userdb (username, email, password, roleID, verified) VALUES ('${username}', '${email}', '${hashPassword(
         password
@@ -149,7 +155,7 @@ router.post('/email-verification', async (req, res) => {
     const newData = await handleToken(getUser[0]);
     return res.status(200).send(newData);
   } catch (err) {
-    console, log(err);
+    console.log(err);
     return res.status(500).send(err);
   }
 });

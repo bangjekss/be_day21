@@ -1,5 +1,5 @@
 import Axios from 'axios';
-import { api_url } from '../../favordb';
+import { api_url, notification } from '../../favordb';
 import {
   API_LOADING_START,
   API_LOADING_FAILED,
@@ -95,12 +95,17 @@ export const keepLoginAction = () => {
       });
     } catch (error) {
       console.log(error);
-      Swal.fire({
-        title: 'Ooppss...!!',
+      const data = {
         icon: 'info',
-        text: `Login was expired`,
-        // timer: 3000,
-      });
+        title: 'Login session has expired',
+      };
+      notification(data);
+      // Swal.fire({
+      //   title: 'Ooppss...!!',
+      //   icon: 'info',
+      //   text: `Login was expired`,
+      //   // timer: 3000,
+      // });
       dispatch({
         type: API_LOADING_FAILED,
         payload: error.message,
@@ -146,27 +151,25 @@ export const logoutAction = () => {
 
 export const validation = (value) => {
   return async (dispatch) => {
-    // console.log('ea');
+    console.log('ea');
     const { username, email, password, cpassword } = value;
     const regex_email = /[\w-\.]+(@[\w-\.]+\.)+[\w-\.]{2,4}$/;
     const regex_password = /(?=.*[\d])(?=.*[A-Z])(?=.*[!@#$%^&*\-\_=<>,\.?]).{8,16}$/;
-    const validation_UsernameEmail = { username, email, validation: true };
+    const validation_UsernameEmail = { username, email };
     // console.log(validation_UsernameEmail);
-    let response = await Axios.post(`${userdb_url}/register`, validation_UsernameEmail);
-    // console.log(response.data);
-    if (response.data.length === 0) {
-      response.data = [
-        {
-          ...response.data,
-          username: null,
-          email: null,
-        },
-      ];
-    } else {
-      response = await Axios.post(`${userdb_url}/register`, validation_UsernameEmail);
-      // console.log(response.data[0].email);
+    let response = await Axios.post(
+      `${userdb_url}/register-live-validation`,
+      validation_UsernameEmail
+    );
+    console.log(response.data);
+    if (!response.data) {
+      response.data = {
+        ...response.data,
+        username: null,
+        email: null,
+      };
     }
-    if (!response.data[0].username) {
+    if (!response.data.username) {
       // console.log('next');
       dispatch({
         type: 'IS_VALID_USERNAME',
@@ -187,7 +190,6 @@ export const validation = (value) => {
         payload: true,
       });
     }
-
     if (email.match(regex_email)) {
       dispatch({
         type: 'IS_VALID_EMAIL',
@@ -197,7 +199,7 @@ export const validation = (value) => {
         type: 'IS_INVALID_EMAIL',
         payload: false,
       });
-      if (!response.data[0].email) {
+      if (!response.data.email) {
         dispatch({
           type: 'IS_VALID_EMAIL',
           payload: true,
@@ -206,7 +208,6 @@ export const validation = (value) => {
           type: 'IS_INVALID_EMAIL',
           payload: false,
         });
-        console.log(response.data[0].email, 'a');
       } else {
         dispatch({
           type: 'IS_VALID_EMAIL',
@@ -216,7 +217,6 @@ export const validation = (value) => {
           type: 'IS_INVALID_EMAIL',
           payload: true,
         });
-        console.log(response.data[0].email, 'b');
       }
     } else {
       dispatch({
@@ -228,7 +228,6 @@ export const validation = (value) => {
         payload: true,
       });
     }
-
     if (password.match(regex_password)) {
       dispatch({
         type: 'IS_VALID_PASSWORD',
@@ -279,6 +278,7 @@ export const registerAction = (userData) => {
       const response = await Axios.post(`${userdb_url}/register`, userData);
       // console.log(response.data.value);
       const { id, username, email, roleID, verified, token } = response.data;
+
       localStorage.setItem('token', token);
       dispatch({
         type: API_REGIS_LOGIN,
@@ -291,7 +291,7 @@ export const registerAction = (userData) => {
         title: `Welcome ${userData.username} \\(^.^)/`,
         text: 'Your account has been registered',
         icon: 'success',
-        timer: 2000,
+        timer: 10000,
         showConfirmButton: false,
         timerProgressBar: true,
       });
